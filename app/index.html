@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Szczytomaniak</title>
+<meta name="description" content="Dziennik zdobytych szczytów 32 pasm górskich Polski: check-in GPS, mapa, zdjęcia i notatki.">
+<meta name="theme-color" content="#104D2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Szczytomaniak">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --accent:#176B3A; --accent-strong:#104D2A; --accent-soft:#DFF3E4; --on-accent:#fff;
+  --bg:#F2F5F2; --card:#FFFFFF; --fg:#14201A; --muted:#5E6B63; --line:rgba(20,32,26,.10);
+  --todo:#B3261E; --todo-soft:#FDE7E6; --done:#2E7D32; --gold:#E3B23C;
+  --tabbar:rgba(248,250,248,.82); --sheet:#FFFFFF; --input:#F2F5F2; --shadow:0 1px 2px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --accent:#5CC384; --accent-strong:#2F8F55; --accent-soft:#16301F; --on-accent:#06150C;
+    --bg:#000000; --card:#1C1F1D; --fg:#ECF2EE; --muted:#9AA79F; --line:rgba(255,255,255,.10);
+    --todo:#FF8A80; --todo-soft:#3A1A18; --done:#7FD58F;
+    --tabbar:rgba(22,24,23,.82); --sheet:#1C1F1D; --input:#2A2E2B; --shadow:none;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg)}
+body{font:17px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior-y:none;-webkit-text-size-adjust:100%}
+button,input,textarea,select{font:inherit;color:inherit}
+input,textarea,select{font-size:17px}
+a{color:var(--accent)}
+.hidden{display:none!important}
+
+/* --- układ: ekrany + pasek kart --- */
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.screen{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(var(--safe-t) + 8px) calc(16px + var(--safe-r)) calc(96px + var(--safe-b)) calc(16px + var(--safe-l))}
+.screen.map-screen{padding:0;overflow:hidden;position:relative}
+.large-title{font-size:34px;font-weight:700;letter-spacing:.2px;margin:8px 4px 14px}
+.section-title{font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:22px 16px 6px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:space-around;
+  padding:6px calc(4px + var(--safe-r)) calc(4px + var(--safe-b)) calc(4px + var(--safe-l));
+  background:var(--tabbar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--line)}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;padding:4px 0 2px;color:var(--muted);font-size:10.5px;font-weight:500;cursor:pointer}
+.tab svg{width:26px;height:26px}
+.tab[aria-selected=true]{color:var(--accent)}
+
+/* --- elementy --- */
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow)}
+.pad{padding:16px}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;border-radius:13px;border:0;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:17px;cursor:pointer}
+.btn:active{opacity:.75}
+.btn[disabled]{opacity:.55}
+.btn.secondary{background:var(--accent-soft);color:var(--accent)}
+.btn.plain{background:none;color:var(--accent);min-height:44px}
+.btn.danger{background:none;color:var(--todo);min-height:44px}
+.btn svg{width:22px;height:22px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+.center{text-align:center}
+
+/* lista grupowana jak w Ustawieniach iOS */
+.group{background:var(--card);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.row{display:flex;align-items:center;gap:12px;min-height:50px;padding:10px 16px;border:0;background:none;width:100%;text-align:left;cursor:pointer;color:var(--fg);text-decoration:none}
+.row+.row{border-top:.5px solid var(--line)}
+.row .chev{margin-left:auto;color:var(--muted);opacity:.6}
+.row .ico{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--accent);color:#fff;flex:none}
+.row .ico svg{width:18px;height:18px}
+
+/* przełącznik iOS */
+.switch{position:relative;width:51px;height:31px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch span{position:absolute;inset:0;border-radius:31px;background:rgba(120,120,128,.32);transition:.2s}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.25);transition:.2s}
+.switch input:checked+span{background:#34C759}
+.switch input:checked+span::after{transform:translateX(20px)}
+
+/* --- start --- */
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding-top:6px}
+.emblem{width:184px;height:184px;border-radius:50%;object-fit:cover;box-shadow:0 6px 24px rgba(16,77,42,.25);border:3px solid var(--accent)}
+.hero h1{font-size:28px;margin:10px 0 0}
+.hero p{margin:0}
+.progress{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+.progress>i{display:block;height:100%;background:var(--accent);border-radius:8px;transition:width .4s}
+.big-num{font-size:40px;font-weight:700;color:var(--accent);line-height:1.1}
+.install{background:var(--accent-soft);border-radius:14px;padding:14px 16px;position:relative}
+.install b{display:block;margin-bottom:4px}
+.install .x{position:absolute;right:6px;top:6px;border:0;background:none;color:var(--muted);font-size:22px;width:36px;height:36px}
+.share-ico{display:inline-block;vertical-align:-4px;width:20px;height:20px;color:var(--accent)}
+
+/* --- lista szczytów --- */
+.peak{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--card);box-shadow:var(--shadow);cursor:pointer}
+.peak .state{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:700;font-size:17px}
+.peak.done .state{background:var(--accent-soft);color:var(--done)}
+.peak.todo .state{background:var(--todo-soft);color:var(--todo)}
+.peak .info{flex:1;min-width:0}
+.peak .name{font-weight:600}
+.peak .sub{font-size:14px;color:var(--muted)}
+.peak .date{font-size:13px;color:var(--done)}
+.peak .gps{font-size:12px}
+.peak img{width:62px;height:72px;object-fit:cover;border-radius:10px;flex:none}
+.peak .mapbtn{border:0;background:var(--accent-soft);color:var(--accent);border-radius:20px;padding:4px 10px;font-size:13px;font-weight:600;margin-top:6px;display:inline-flex;align-items:center;gap:4px}
+.peak .mapbtn svg{width:14px;height:14px}
+.toolbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:12px;padding:8px 8px 8px 16px;margin-bottom:12px;box-shadow:var(--shadow)}
+
+/* --- mapa --- */
+#map{position:absolute;inset:0}
+.map-chip{position:absolute;left:calc(12px + var(--safe-l));top:calc(var(--safe-t) + 12px);z-index:5;display:flex;align-items:center;gap:10px;
+  background:var(--tabbar);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);border-radius:22px;padding:6px 6px 6px 14px;font-size:15px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.map-chip .switch{transform:scale(.85);transform-origin:right center}
+.map-msg{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted);z-index:4;background:var(--bg)}
+.maplibregl-ctrl-top-right{top:calc(var(--safe-t) + 4px)!important;right:var(--safe-r)!important}
+.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{bottom:calc(84px + var(--safe-b))!important}
+
+/* --- check-in --- */
+.checkin-hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-top:8px}
+.flag{width:72px;height:72px;border-radius:50%;background:var(--accent-soft);display:grid;place-items:center;color:var(--accent)}
+.flag svg{width:38px;height:38px}
+.btn.huge{min-height:64px;font-size:18px;border-radius:16px}
+.spinner{width:22px;height:22px;border-radius:50%;border:2.5px solid currentColor;border-right-color:transparent;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result{border-radius:14px;padding:16px;text-align:center}
+.result.ok{background:var(--accent-soft)}
+.result.info{background:var(--card);box-shadow:var(--shadow)}
+.result h3{margin:0 0 6px;font-size:21px;color:var(--accent)}
+
+/* --- arkusz (bottom sheet) --- */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40;opacity:0;transition:opacity .25s}
+.backdrop.show{opacity:1}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--sheet);border-radius:14px 14px 0 0;max-height:calc(100% - var(--safe-t) - 24px);
+  display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.2,1);box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+.sheet.show{transform:none}
+.sheet-head{display:flex;align-items:center;justify-content:space-between;padding:10px 8px 6px 18px;border-bottom:.5px solid var(--line);position:relative}
+.sheet-head::before{content:"";position:absolute;top:6px;left:50%;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:var(--line)}
+.sheet-head h2{font-size:20px;margin:10px 0 0}
+.sheet-head button{border:0;background:none;color:var(--accent);font-size:17px;font-weight:600;padding:10px;margin-top:6px}
+.sheet-body{overflow-y:auto;padding:14px 18px calc(18px + var(--safe-b));display:flex;flex-direction:column;gap:12px}
+.field label{display:block;font-size:13px;color:var(--muted);margin:0 0 4px 4px}
+.field input,.field textarea{width:100%;border:0;border-radius:11px;background:var(--input);padding:12px 14px;outline:none;-webkit-appearance:none;appearance:none;min-height:46px}
+.field textarea{min-height:90px;resize:vertical}
+.photo-prev{width:100%;max-height:260px;object-fit:cover;border-radius:12px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:14px;padding:8px 12px;border-radius:10px;background:var(--input)}
+.badge.ok{background:var(--accent-soft);color:var(--accent)}
+
+/* --- tekst (regulamin itp.) --- */
+.prose h2{font-size:22px;margin:4px 0 8px;color:var(--accent)}
+.prose h3{font-size:17px;margin:18px 0 4px;color:var(--accent)}
+.prose p{margin:0 0 8px}
+.back{border:0;background:none;color:var(--accent);font-size:17px;display:flex;align-items:center;gap:2px;padding:6px 0;margin:4px 0}
+.back svg{width:22px;height:22px}
+.toast{position:fixed;left:50%;bottom:calc(96px + var(--safe-b));transform:translateX(-50%) translateY(20px);z-index:60;background:rgba(30,30,30,.92);color:#fff;
+  padding:10px 16px;border-radius:12px;font-size:15px;opacity:0;transition:.25s;max-width:calc(100% - 40px);text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- START -->
+  <main class="screen" id="s-start" data-screen="start">
+    <div class="hero">
+      <img class="emblem" src="img/emblem.jpg" alt="Emblemat Szczytomaniak – wędrowiec na tle gór" width="184" height="184">
+      <h1>Szczytomaniak</h1>
+      <p class="muted">Twoja kolejna górska przygoda zaczyna się tutaj.</p>
+    </div>
+    <div id="install" class="install hidden" style="margin-top:16px">
+      <button class="x" aria-label="Zamknij" data-act="hide-install">×</button>
+      <b>Dodaj Szczytomaniaka do ekranu początkowego</b>
+      <span class="small">Stuknij <svg class="share-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg> <b style="display:inline">Udostępnij</b> na pasku Safari, a potem <b style="display:inline">„Do ekranu początkowego”</b>. Aplikacja otworzy się na pełnym ekranie, a Twoje wpisy będą bezpieczniejsze.</span>
+    </div>
+    <div class="card pad center" style="margin-top:16px">
+      <div class="muted small">Twój postęp</div>
+      <div class="big-num"><span id="count">0</span> <span style="font-size:22px">z 32</span></div>
+      <div class="progress" style="margin-top:10px"><i id="bar" style="width:0"></i></div>
+      <div id="badge-done" class="hidden" style="margin-top:10px;font-weight:600">🏆 Odznaka ukończona!</div>
+    </div>
+    <div class="stack" style="margin-top:16px">
+      <button class="btn" data-go="checkin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>Check-in na szczycie</button>
+      <button class="btn secondary" data-go="peaks">Przeglądaj szczyty</button>
+      <button class="btn secondary" data-go="map">Otwórz mapę</button>
+      <a class="btn plain" id="start-support" href="#" target="_blank" rel="noopener" style="text-decoration:none">☕ Postaw kawę autorowi</a>
+    </div>
+    <p class="muted small" style="margin:18px 6px 0">Szczytomaniak to niezależny projekt hobbystyczny, który pomaga prowadzić prywatny dziennik zdobytych szczytów, m.in. z listy odznaki „Zdobywca Polskich Gór”. Nie jest oficjalną aplikacją ani częścią Podkarpackiej Fundacji Rozwoju „Beskid”. Nie zastępuje oficjalnej książeczki, regulaminu ani procedury przyznawania odznaki.</p>
+  </main>
+
+  <!-- SZCZYTY -->
+  <main class="screen hidden" id="s-peaks" data-screen="peaks">
+    <div class="large-title">Szczyty</div>
+    <div class="toolbar">
+      <span>Ukryj zdobyte</span>
+      <label class="switch"><input type="checkbox" id="hide-list" aria-label="Ukryj zdobyte"><span></span></label>
+    </div>
+    <div id="peak-list" class="stack"></div>
+    <p id="all-done" class="center muted hidden" style="margin-top:30px">🏆 Wszystkie szczyty zdobyte!</p>
+  </main>
+
+  <!-- MAPA -->
+  <main class="screen map-screen hidden" id="s-map" data-screen="map">
+    <div id="map"></div>
+    <div class="map-chip"><span>Ukryj zdobyte</span><label class="switch"><input type="checkbox" id="hide-map" aria-label="Ukryj zdobyte na mapie"><span></span></label></div>
+    <div id="map-msg" class="map-msg">Ładowanie mapy…</div>
+  </main>
+
+  <!-- CHECK-IN -->
+  <main class="screen hidden" id="s-checkin" data-screen="checkin">
+    <div class="checkin-hero">
+      <div class="flag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg></div>
+      <div class="large-title" style="margin:4px 0 0">Check-in</div>
+      <p class="muted" style="margin:0 0 6px">Stań na wierzchołku i stuknij przycisk. Szczytomaniak jednorazowo sprawdzi Twoją pozycję i – jeśli jesteś przy szczycie z listy – zaliczy go z potwierdzeniem GPS.</p>
+    </div>
+    <button class="btn huge" id="checkin-btn" style="margin-top:8px"></button>
+    <div id="checkin-result" style="margin-top:14px"></div>
+    <p class="muted small center" style="margin-top:16px">Lokalizacja jest sprawdzana tylko po stuknięciu przycisku i zostaje na telefonie.</p>
+  </main>
+
+  <!-- WIĘCEJ -->
+  <main class="screen hidden" id="s-more" data-screen="more">
+    <div id="more-menu">
+      <div class="large-title">Więcej</div>
+      <div class="group">
+        <button class="row" data-sub="rules"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5a2 2 0 0 1 2-2h12v18H6a2 2 0 0 1-2-2z"/><path d="M8 7h6M8 11h6"/></svg></span>Regulamin odznaki<span class="chev">›</span></button>
+        <button class="row" data-sub="support" id="row-support"><span class="ico" style="background:#A0522D"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h13v5a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6z"/><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/></svg></span>Postaw kawę autorowi<span class="chev">›</span></button>
+        <button class="row" data-sub="feedback"><span class="ico" style="background:#0A84FF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>Zgłoś uwagę<span class="chev">›</span></button>
+      </div>
+      <div class="section-title">Twoje dane</div>
+      <div class="group">
+        <button class="row" data-act="export"><span class="ico" style="background:#5E5CE6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M5 19h14"/></svg></span>Zapisz kopię zapasową</button>
+        <button class="row" data-act="import"><span class="ico" style="background:#8E8E93"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M5 19h14"/></svg></span>Wczytaj kopię zapasową</button>
+      </div>
+      <p class="muted small" style="margin:8px 16px 0">Wpisy i zdjęcia są zapisane tylko w Safari na tym telefonie. Co jakiś czas zapisz kopię, np. w Plikach na iCloud Drive.</p>
+      <div class="section-title">Informacje</div>
+      <div class="group">
+        <a class="row" href="../" target="_blank" rel="noopener">Polityka prywatności<span class="chev">›</span></a>
+        <button class="row" data-sub="about">O aplikacji<span class="chev">›</span></button>
+      </div>
+      <input type="file" id="import-file" accept="application/json,.json" class="hidden">
+    </div>
+
+    <div id="sub-rules" class="sub hidden prose">
+      <button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>Więcej</button>
+      <h2>Regulamin odznaki „Zdobywca Polskich Gór”</h2>
+      <p>Poniżej przedstawiono skrót zasad na podstawie regulaminu opublikowanego przez Podkarpacką Fundację Rozwoju „Beskid”. W przypadku rozbieżności wiążący jest regulamin na stronie Fundacji.</p>
+      <h3>§1. Organizator</h3><p>Odznaka została ustanowiona i jest przyznawana przez Podkarpacką Fundację Rozwoju „Beskid” z siedzibą w Jaśle.</p>
+      <h3>§2. Cel</h3><p>Odznaka ma popularyzować turystykę pieszą w polskich górach oraz poznawanie ich walorów przyrodniczych, krajoznawczych, kulturowych i historycznych.</p>
+      <h3>§3. Zasady zdobywania</h3><p>Odznaka jest jednostopniowa. Zdobywa się ją przez wejście na szczyty wskazane w oficjalnym wykazie. Kolejność jest dowolna, a czas zdobywania nie jest ograniczony. Można zaliczyć również wcześniejsze wejścia, jeśli są odpowiednio udokumentowane.</p>
+      <h3>§4. Szczyty niedostępne</h3><p>Jeśli wejście na szczyt jest niedostępne, regulamin dopuszcza uznanie go za zdobyty, gdy turysta znajdzie się możliwie blisko niego.</p>
+      <h3>§5. Potwierdzenia</h3><p>W książeczce odznaki wpisuje się datę wejścia i potwierdzenie zdobycia. Regulamin wymienia m.in. podpis uprawnionej osoby, pieczątkę, fotografię lub przebytą trasę GPS.</p>
+      <h3>§6. Weryfikacja</h3><p>Po zebraniu potwierdzeń ze wszystkich wymaganych szczytów książeczkę przedstawia się Fundacji do weryfikacji. Weryfikacja jest bezpłatna; osoba ubiegająca się o odznakę ponosi ewentualne koszty przesyłki i zakupu odznaki.</p>
+      <h3>Ważne</h3><p>Aplikacja pomaga zapisywać postępy, ale sama nie zastępuje oficjalnej książeczki ani weryfikacji przez Fundację. Pełny wykaz szczytów, wyjątki i aktualne zasady sprawdź w oryginalnym regulaminie.</p>
+      <p><a href="https://fundacjabeskid.org.pl/regulamin-odznaki-zdobywca-polskich-gor/" target="_blank" rel="noopener">Otwórz oryginalny regulamin na fundacjabeskid.org.pl</a></p>
+    </div>
+
+    <div id="sub-support" class="sub hidden">
+      <button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>Więcej</button>
+      <div class="checkin-hero">
+        <div class="flag" style="font-size:36px">☕</div>
+        <div class="large-title" style="margin:0">Postaw kawę</div>
+        <p style="margin:0">Szczytomaniak jest darmowy i bez reklam. Tworzę go hobbystycznie, po godzinach. Jeśli pomaga Ci na szlaku, możesz postawić mi wirtualną kawę – to motywuje do dalszego rozwoju.</p>
+      </div>
+      <a class="btn" id="support-link" href="#" target="_blank" rel="noopener" style="margin-top:18px;text-decoration:none">☕ Postaw kawę</a>
+      <p class="muted small center" style="margin-top:12px">Wsparcie jest całkowicie dobrowolne i nie odblokowuje żadnych funkcji. Otworzy się zewnętrzna strona płatności.</p>
+    </div>
+
+    <div id="sub-feedback" class="sub hidden">
+      <button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>Więcej</button>
+      <div class="large-title" style="margin-top:0">Zgłoś uwagę</div>
+      <p class="muted" style="margin-top:-6px">Opowiedz, co nie działa lub co warto zmienić. Otworzy się Twoja aplikacja Mail z przygotowaną wiadomością.</p>
+      <div class="stack">
+        <div class="field"><label for="fb-kind">Rodzaj zgłoszenia</label>
+          <select id="fb-kind" style="width:100%;border:0;border-radius:11px;background:var(--input);padding:12px 14px;min-height:46px">
+            <option>Błąd w aplikacji</option><option>Propozycja nowej funkcji</option><option>Błąd na mapie lub szczycie</option><option>Inna uwaga</option>
+          </select></div>
+        <div class="field"><label for="fb-text">Opis</label><textarea id="fb-text" placeholder="Co się stało? Jak odtworzyć problem?"></textarea></div>
+        <button class="btn" id="fb-send" disabled>Przygotuj e-mail</button>
+        <p class="muted small">Wiadomość nie zostanie wysłana automatycznie – przed wysłaniem możesz ją sprawdzić i edytować.</p>
+      </div>
+    </div>
+
+    <div id="sub-about" class="sub hidden prose">
+      <button class="back" data-back><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>Więcej</button>
+      <h2>O aplikacji</h2>
+      <p><b>Szczytomaniak</b> – wersja webowa <span id="ver"></span>.</p>
+      <p>Niezależny projekt hobbystyczny Łukasza Wiśniewskiego. Nie jest oficjalną aplikacją ani częścią Podkarpackiej Fundacji Rozwoju „Beskid”.</p>
+      <p>Bez konta, bez reklam i bez śledzenia. Wpisy, zdjęcia i notatki są przechowywane wyłącznie w przeglądarce na tym urządzeniu.</p>
+      <p>Mapa: © <a href="https://maptoolkit.org" target="_blank" rel="noopener">Maptoolkit</a>, dane © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">współtwórcy OpenStreetMap</a>. Silnik mapy: MapLibre GL JS.</p>
+      <p>Kontakt: <a href="mailto:wisniewski.lukasz.it@gmail.com">wisniewski.lukasz.it@gmail.com</a></p>
+    </div>
+  </main>
+
+  <nav class="tabbar" role="tablist">
+    <button class="tab" role="tab" data-go="start" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Start</button>
+    <button class="tab" role="tab" data-go="peaks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M2 20l7-12 4 6 3-4 6 10z"/></svg>Szczyty</button>
+    <button class="tab" role="tab" data-go="map"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg>Mapa</button>
+    <button class="tab" role="tab" data-go="checkin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>Check-in</button>
+    <button class="tab" role="tab" data-go="more"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>Więcej</button>
+  </nav>
+</div>
+
+<!-- arkusz szczytu -->
+<div class="backdrop hidden" id="backdrop"></div>
+<section class="sheet hidden" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sh-title">
+  <div class="sheet-head"><h2 id="sh-title"></h2><button data-act="close-sheet">Gotowe</button></div>
+  <div class="sheet-body" id="sh-body"></div>
+</section>
+<input type="file" id="photo-file" accept="image/*" class="hidden">
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+/* ================= KONFIGURACJA ================= */
+const APP_VERSION = '1.0.1';
+// Adres strony „postaw kawę” (np. https://buycoffee.to/twoj-login). Puste = ekran wsparcia jest ukryty.
+const SUPPORT_URL = 'https://buycoffee.to/szczytomaniak';
+const FEEDBACK_EMAIL = 'wisniewski.lukasz.it@gmail.com';
+const MAP_STYLE_URL = 'https://styles.maptoolkit.org/hiking.json';
+const MAPLIBRE_JS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js';
+const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css';
+const CHECKIN_RADIUS_M = 100;      // promień zaliczenia od wierzchołka
+const CHECKIN_MAX_ACCURACY_M = 150; // gorsza dokładność = poproś o ponowną próbę
+
+const PEAKS = [{"id":1,"pasmo":"Tatry Wschodnie","nazwa":"Rysy","wys":2499,"lat":49.179,"lon":20.088},{"id":2,"pasmo":"Tatry Zachodnie","nazwa":"Starorobociański Wierch","wys":2176,"lat":49.19955,"lon":19.81983},{"id":3,"pasmo":"Beskid Żywiecko-Orawski","nazwa":"Babia Góra (Diablak)","wys":1724,"lat":49.573,"lon":19.529},{"id":4,"pasmo":"Karkonosze","nazwa":"Śnieżka","wys":1603,"lat":50.736,"lon":15.74},{"id":5,"pasmo":"Tatry Reglowe","nazwa":"Mała Kopa Królowa","wys":1577,"lat":49.25261,"lon":20.00269},{"id":6,"pasmo":"Masyw Śnieżnika","nazwa":"Śnieżnik","wys":1424,"lat":50.207,"lon":16.849},{"id":7,"pasmo":"Bieszczady Zachodnie","nazwa":"Tarnica","wys":1346,"lat":49.074,"lon":22.726},{"id":8,"pasmo":"Gorce","nazwa":"Turbacz","wys":1310,"lat":49.543,"lon":20.112},{"id":9,"pasmo":"Beskid Sądecki","nazwa":"Radziejowa","wys":1262,"lat":49.45,"lon":20.604},{"id":10,"pasmo":"Beskid Śląski","nazwa":"Skrzyczne","wys":1257,"lat":49.684,"lon":19.03},{"id":11,"pasmo":"Beskid Żywiecko-Kysucki","nazwa":"Wielka Racza","wys":1236,"lat":49.4133,"lon":18.9689},{"id":12,"pasmo":"Beskid Wyspowy","nazwa":"Mogielica","wys":1171,"lat":49.655,"lon":20.277},{"id":13,"pasmo":"Góry Izerskie","nazwa":"Wysoka Kopa","wys":1127,"lat":50.85,"lon":15.42},{"id":14,"pasmo":"Góry Złote","nazwa":"Postawna","wys":1117,"lat":50.223333,"lon":17.011667},{"id":15,"pasmo":"Góry Orlickie","nazwa":"Orlica","wys":1081,"lat":50.353,"lon":16.361},{"id":16,"pasmo":"Pieniny","nazwa":"Wysokie Skałki","wys":1049,"lat":49.3803,"lon":20.5556},{"id":17,"pasmo":"Magura Spiska","nazwa":"Górków Wierch","wys":1046,"lat":49.308917,"lon":20.167611},{"id":18,"pasmo":"Góry Sowie","nazwa":"Wielka Sowa","wys":1016,"lat":50.68,"lon":16.486},{"id":19,"pasmo":"Beskid Niski","nazwa":"Lackowa","wys":997,"lat":49.427,"lon":21.097},{"id":20,"pasmo":"Góry Bystrzyckie","nazwa":"Jagodna Północna","wys":985,"lat":50.252,"lon":16.565},{"id":21,"pasmo":"Rudawy Janowickie","nazwa":"Skalnik","wys":945,"lat":50.809,"lon":15.9},{"id":22,"pasmo":"Góry Kamienne","nazwa":"Waligóra","wys":934,"lat":50.68,"lon":16.279},{"id":23,"pasmo":"Beskid Mały","nazwa":"Czupel","wys":931,"lat":49.765,"lon":19.16},{"id":24,"pasmo":"Góry Stołowe","nazwa":"Szczeliniec Wielki","wys":922,"lat":50.485,"lon":16.342},{"id":25,"pasmo":"Góry Sanocko-Turczańskie","nazwa":"Jaworniki","wys":908,"lat":49.341111,"lon":22.713056},{"id":26,"pasmo":"Beskid Makowski","nazwa":"Lubomir","wys":903,"lat":49.766,"lon":20.059},{"id":27,"pasmo":"Góry Opawskie","nazwa":"Biskupia Kopa","wys":887,"lat":50.257,"lon":17.429},{"id":28,"pasmo":"Góry Wałbrzyskie","nazwa":"Borowa","wys":854,"lat":50.722981,"lon":16.304469},{"id":29,"pasmo":"Góry Bardzkie","nazwa":"Szeroka Góra","wys":766,"lat":50.453665,"lon":16.75865},{"id":30,"pasmo":"Góry Kaczawskie","nazwa":"Okole","wys":723,"lat":50.981125,"lon":15.817872},{"id":31,"pasmo":"Masyw Ślęży","nazwa":"Ślęża","wys":717,"lat":50.866,"lon":16.707},{"id":32,"pasmo":"Góry Świętokrzyskie","nazwa":"Agata","wys":614,"lat":50.889005,"lon":20.905609}];
+const byId = Object.fromEntries(PEAKS.map(p => [p.id, p]));
+
+/* ================= DANE ================= */
+// Wpisy: localStorage (małe). Zdjęcia: IndexedDB (Bloby). Każdy odczyt/zapis w try/catch.
+const LS_KEY = 'szczytomaniak.v1';
+let state = { entries: {}, hideCompleted: false, installHidden: false };
+function loadState(){ try { const raw = localStorage.getItem(LS_KEY); if (raw) state = Object.assign(state, JSON.parse(raw)); } catch(e) {} }
+function saveState(){ try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e) { toast('Nie udało się zapisać danych. Sprawdź, czy Safari nie działa w trybie prywatnym.'); } }
+
+let dbp = null;
+function db(){
+  if (!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open('szczytomaniak', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('photos');
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function photoPut(id, blob){ const d = await db(); return new Promise((res, rej) => { const t = d.transaction('photos','readwrite'); t.objectStore('photos').put(blob, id); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+async function photoGet(id){ try { const d = await db(); return await new Promise((res) => { const r = d.transaction('photos').objectStore('photos').get(id); r.onsuccess = () => res(r.result || null); r.onerror = () => res(null); }); } catch(e) { return null; } }
+async function photoDel(id){ try { const d = await db(); await new Promise((res) => { const t = d.transaction('photos','readwrite'); t.objectStore('photos').delete(id); t.oncomplete = res; t.onerror = res; }); } catch(e) {} }
+const urlCache = {};
+async function photoUrl(id){
+  if (urlCache[id]) return urlCache[id];
+  const b = await photoGet(id); if (!b) return null;
+  return (urlCache[id] = URL.createObjectURL(b));
+}
+function dropUrl(id){ if (urlCache[id]) { URL.revokeObjectURL(urlCache[id]); delete urlCache[id]; } }
+
+// Zmniejszenie zdjęcia z aparatu (12 Mpx) do ~1600 px JPEG – oszczędza miejsce w przeglądarce.
+async function shrink(file, max = 1600){
+  const src = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return await new Promise(res => c.toBlob(b => res(b || file), 'image/jpeg', 0.82));
+  } catch(e) { return file; } finally { URL.revokeObjectURL(src); }
+}
+
+/* ================= POMOCNICZE ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+function nowLocal(){ const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtDate(v){ if (!v) return ''; const [d, t] = v.split('T'); const [y, m, dd] = d.split('-'); return `${dd}.${m}.${y}${t ? ' ' + t : ''}`; }
+function dist(a, b, c, d){ const R = 6371000, r = Math.PI / 180; const x = Math.sin((c-a)*r/2)**2 + Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2; return 2 * R * Math.asin(Math.sqrt(x)); }
+const km = m => m < 1000 ? `${Math.round(m)} m` : `${(m/1000).toFixed(1).replace('.', ',')} km`;
+const doneCount = () => PEAKS.filter(p => state.entries[p.id]).length;
+let toastT; function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3200); }
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+
+/* ================= NAWIGACJA ================= */
+let current = 'start';
+function go(name){
+  current = name;
+  document.querySelectorAll('[data-screen]').forEach(s => s.classList.toggle('hidden', s.dataset.screen !== name));
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.go === name));
+  if (name === 'map') openMap();
+  if (name === 'more') showSub(null);
+  if (history.replaceState) history.replaceState(null, '', '#' + name);
+}
+function showSub(name){
+  $('#more-menu').classList.toggle('hidden', !!name);
+  document.querySelectorAll('.sub').forEach(s => s.classList.toggle('hidden', s.id !== 'sub-' + name));
+  $('#s-more').scrollTop = 0;
+}
+
+/* ================= START ================= */
+function renderStart(){
+  const n = doneCount();
+  $('#count').textContent = n; $('#bar').style.width = (n / 32 * 100) + '%';
+  $('#badge-done').classList.toggle('hidden', n < 32);
+  $('#install').classList.toggle('hidden', !(isIOS && !standalone && !state.installHidden));
+}
+
+/* ================= LISTA ================= */
+async function renderList(scrollTop){
+  const list = $('#peak-list');
+  const visible = PEAKS.filter(p => !(state.hideCompleted && state.entries[p.id]));
+  list.innerHTML = visible.map(p => {
+    const e = state.entries[p.id];
+    return `<div class="peak ${e ? 'done' : 'todo'}" data-peak="${p.id}">
+      <div class="state">${e ? '✓' : '○'}</div>
+      <div class="info">
+        <div class="name">${esc(p.nazwa)}</div>
+        <div class="sub">${esc(p.pasmo)} • ${p.wys} m</div>
+        ${e ? `<div class="date">Zdobyty: ${esc(fmtDate(e.date))}${e.gps ? ' <span class="gps">📍 GPS</span>' : ''}</div>` : ''}
+        <button class="mapbtn" data-showmap="${p.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Pokaż na mapie</button>
+      </div>
+      ${e && e.photo ? `<img alt="" data-photo="${p.id}">` : ''}
+    </div>`;
+  }).join('');
+  $('#all-done').classList.toggle('hidden', visible.length > 0);
+  if (scrollTop) $('#s-peaks').scrollTop = 0;
+  for (const img of list.querySelectorAll('img[data-photo]')) { const u = await photoUrl(+img.dataset.photo); if (u) img.src = u; else img.remove(); }
+}
+
+/* ================= ARKUSZ SZCZYTU ================= */
+let sheetPeak = null, draft = null;
+function openSheet(id){
+  sheetPeak = byId[id];
+  const e = state.entries[id];
+  draft = e ? Object.assign({}, e, { newPhoto: null, removePhoto: false }) : null;
+  $('#sh-title').textContent = sheetPeak.nazwa;
+  renderSheet();
+  const bd = $('#backdrop'), sh = $('#sheet');
+  bd.classList.remove('hidden'); sh.classList.remove('hidden');
+  requestAnimationFrame(() => { bd.classList.add('show'); sh.classList.add('show'); });
+}
+function closeSheet(){
+  const bd = $('#backdrop'), sh = $('#sheet');
+  bd.classList.remove('show'); sh.classList.remove('show');
+  setTimeout(() => { bd.classList.add('hidden'); sh.classList.add('hidden'); }, 300);
+  if (draft && draft.newPhotoUrl) URL.revokeObjectURL(draft.newPhotoUrl);
+  sheetPeak = null; draft = null;
+}
+async function renderSheet(){
+  const p = sheetPeak, body = $('#sh-body');
+  const head = `<div class="muted">${esc(p.pasmo)} • ${p.wys} m n.p.m.</div>
+    <div class="muted small">GPS: ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}</div>`;
+  if (!draft) {
+    body.innerHTML = head + `
+      <div class="badge">○ Jeszcze niezdobyty</div>
+      <button class="btn" data-act="mark">Oznacz jako zdobyty</button>
+      <button class="btn secondary" data-go-close="checkin">Jestem tu – zrób check-in GPS</button>
+      <button class="btn plain" data-showmap="${p.id}">Pokaż na mapie</button>`;
+    return;
+  }
+  const gps = draft.gps
+    ? `<div class="badge ok">📍 Potwierdzono check-inem GPS (±${Math.round(draft.gps.acc)} m)</div>`
+    : `<div class="badge">Bez potwierdzenia GPS – będąc na szczycie, użyj „Check-in”.</div>`;
+  body.innerHTML = head + gps + `
+    <div class="field"><label for="f-date">Data i godzina zdobycia</label><input type="datetime-local" id="f-date" value="${esc(draft.date)}"></div>
+    <div class="field"><label for="f-note">Notatka</label><textarea id="f-note" placeholder="Pogoda, z kim, którym szlakiem…">${esc(draft.note || '')}</textarea></div>
+    <div id="f-photo"></div>
+    <button class="btn secondary" data-act="pick-photo">${(draft.photo && !draft.removePhoto) || draft.newPhoto ? 'Zmień zdjęcie' : 'Dodaj zdjęcie'}</button>
+    ${(draft.photo && !draft.removePhoto) || draft.newPhoto ? '<button class="btn danger" data-act="remove-photo">Usuń zdjęcie</button>' : ''}
+    <button class="btn" data-act="save">Zapisz</button>
+    ${state.entries[p.id] ? '<button class="btn danger" data-act="unmark">Usuń oznaczenie zdobycia</button>' : ''}`;
+  let u = null;
+  if (draft.newPhoto) u = draft.newPhotoUrl;
+  else if (draft.photo && !draft.removePhoto) u = await photoUrl(p.id);
+  if (u && sheetPeak === p) $('#f-photo').innerHTML = `<img class="photo-prev" src="${u}" alt="Zdjęcie ze szczytu ${esc(p.nazwa)}">`;
+}
+function syncDraft(){ if (!draft) return; const d = $('#f-date'), n = $('#f-note'); if (d) draft.date = d.value || draft.date; if (n) draft.note = n.value; }
+async function saveSheet(){
+  syncDraft();
+  const id = sheetPeak.id;
+  const entry = { date: draft.date || nowLocal(), note: (draft.note || '').trim(), gps: draft.gps || null, photo: !!draft.photo };
+  try {
+    if (draft.newPhoto) { await photoPut(id, draft.newPhoto); dropUrl(id); entry.photo = true; }
+    else if (draft.removePhoto) { await photoDel(id); dropUrl(id); entry.photo = false; }
+  } catch(e) { toast('Nie udało się zapisać zdjęcia – brak miejsca w przeglądarce?'); }
+  state.entries[id] = entry; saveState();
+  closeSheet(); refreshAll(); toast('Zapisano ✓');
+}
+async function unmark(){
+  const id = sheetPeak.id;
+  if (!confirm(`Usunąć oznaczenie zdobycia szczytu ${sheetPeak.nazwa}? Notatka i zdjęcie też zostaną usunięte.`)) return;
+  delete state.entries[id]; saveState(); await photoDel(id); dropUrl(id);
+  closeSheet(); refreshAll();
+}
+
+/* ================= CHECK-IN ================= */
+let checking = false;
+function renderCheckinBtn(){
+  $('#checkin-btn').disabled = checking;
+  $('#checkin-btn').innerHTML = checking
+    ? '<span class="spinner"></span>Ustalam pozycję…'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>Jestem na szczycie – check-in';
+}
+function checkinResult(html, ok){ $('#checkin-result').innerHTML = `<div class="result ${ok ? 'ok' : 'info'}">${html}</div>`; }
+function doCheckin(){
+  if (!('geolocation' in navigator)) { checkinResult('Ta przeglądarka nie obsługuje lokalizacji.'); return; }
+  checking = true; renderCheckinBtn(); $('#checkin-result').innerHTML = '';
+  navigator.geolocation.getCurrentPosition(pos => {
+    checking = false; renderCheckinBtn();
+    const { latitude: la, longitude: lo, accuracy: acc } = pos.coords;
+    if (acc > CHECKIN_MAX_ACCURACY_M) {
+      checkinResult(`Pozycja jest zbyt niedokładna (±${Math.round(acc)} m). Wyjdź na otwartą przestrzeń i spróbuj ponownie.<br><br><span class="small muted">Jeśli to się powtarza: Ustawienia → Prywatność i ochrona → Usługi lokalizacji → Witryny Safari → włącz „Dokładna lokalizacja”.</span>`);
+      return;
+    }
+    let best = null, bestD = Infinity;
+    for (const p of PEAKS) { const d = dist(la, lo, p.lat, p.lon); if (d < bestD) { bestD = d; best = p; } }
+    if (bestD > CHECKIN_RADIUS_M + Math.min(acc, 50)) {
+      checkinResult(`Najbliższy szczyt z listy: <b>${esc(best.nazwa)}</b> (${esc(best.pasmo)}) – <b>${km(bestD)}</b> stąd.<br><span class="small muted">Check-in działa w promieniu ok. ${CHECKIN_RADIUS_M} m od wierzchołka.</span>`);
+      return;
+    }
+    const e = state.entries[best.id];
+    if (e && e.gps) { checkinResult(`✅ <b>${esc(best.nazwa)}</b> masz już zaliczoną z GPS (${esc(fmtDate(e.date))}).`); return; }
+    const gps = { lat: la, lon: lo, acc: acc };
+    // Zachowaj notatkę i zdjęcie, jeśli szczyt był oznaczony ręcznie.
+    state.entries[best.id] = e ? Object.assign({}, e, { gps }) : { date: nowLocal(), note: 'Check-in GPS na szczycie', gps, photo: false };
+    saveState(); refreshAll();
+    checkinResult(`<h3>🏆 ${esc(best.nazwa)} zdobyta!</h3>
+      <div>${esc(best.pasmo)} • ${best.wys} m n.p.m. • ${km(bestD)} od wierzchołka</div>
+      <button class="btn secondary" style="margin-top:12px" data-open="${best.id}">📷 Dodaj zdjęcie i notatkę</button>`, true);
+  }, err => {
+    checking = false; renderCheckinBtn();
+    if (err.code === 1) checkinResult('Brak zgody na lokalizację.<br><br><span class="small muted">Stuknij „aA” na pasku adresu → Ustawienia witryny → Lokalizacja → Pytaj lub Zezwalaj. Możesz też sprawdzić: Ustawienia → Prywatność i ochrona → Usługi lokalizacji → Witryny Safari.</span><br><br><span class="small">Szczyt możesz również oznaczyć ręcznie na liście.</span>');
+    else checkinResult('Nie udało się ustalić pozycji. Sprawdź, czy lokalizacja jest włączona, i spróbuj ponownie.');
+  }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+}
+
+/* ================= MAPA ================= */
+let map = null, mapReady = false, pendingFocus = null;
+function loadMaplibre(){
+  if (window.maplibregl) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = MAPLIBRE_CSS; document.head.appendChild(l);
+    const s = document.createElement('script'); s.src = MAPLIBRE_JS; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+}
+async function openMap(){
+  if (map) { map.resize(); if (pendingFocus) focusPeak(pendingFocus); return; }
+  const msg = $('#map-msg');
+  try { await loadMaplibre(); } catch(e) { msg.textContent = 'Mapa wymaga połączenia z internetem.'; return; }
+  map = new maplibregl.Map({ container: 'map', style: MAP_STYLE_URL, center: [19.3, 50.0], zoom: 5.4, attributionControl: { compact: true }, cooperativeGestures: false });
+  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+  map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false, showAccuracyCircle: true }), 'top-right');
+  map.on('error', ev => { if (!mapReady) msg.textContent = 'Nie udało się wczytać mapy. Sprawdź połączenie z internetem.'; });
+  map.on('load', () => {
+    mapReady = true; msg.classList.add('hidden');
+    for (const p of PEAKS) { map.addImage('pl-' + p.id, plaque(p, false), { pixelRatio: 2 }); map.addImage('pd-' + p.id, plaque(p, true), { pixelRatio: 2 }); }
+    map.addSource('peaks', { type: 'geojson', data: peaksGeo() });
+    map.addLayer({ id: 'peaks', type: 'symbol', source: 'peaks', layout: {
+      'icon-image': ['get', 'img'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+      'icon-size': ['interpolate', ['linear'], ['zoom'], 4, 0.26, 6, 0.36, 8, 0.5, 10, 0.64, 13, 0.8, 16, 0.95],
+      'symbol-sort-key': ['get', 'sort'] } });
+    map.on('click', 'peaks', e => { const f = e.features && e.features[0]; if (f) openSheet(f.properties.id); });
+    map.on('mouseenter', 'peaks', () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', 'peaks', () => map.getCanvas().style.cursor = '');
+    if (pendingFocus) focusPeak(pendingFocus);
+  });
+}
+function peaksGeo(){
+  return { type: 'FeatureCollection', features: PEAKS
+    .filter(p => !(state.hideCompleted && state.entries[p.id]) || (pendingFocus === p.id))
+    .map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+      properties: { id: p.id, img: (state.entries[p.id] ? 'pd-' : 'pl-') + p.id, sort: -p.wys } })) };
+}
+function updateMap(){ if (mapReady) map.getSource('peaks').setData(peaksGeo()); }
+function focusPeak(id){
+  const p = byId[id]; if (!p || !mapReady) return;
+  updateMap(); map.flyTo({ center: [p.lon, p.lat], zoom: 13.5, speed: 1.4 }); pendingFocus = null;
+}
+// Tabliczka szczytu (jak w wersji na Androida). Zdobyte: złota ramka i ✓.
+function plaque(p, done){
+  const W = 420, H = 178, B = 145, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  g.fillStyle = done ? '#0E4426' : '#195B35';
+  rr(5, 5, W - 10, B - 5, 18); g.fill();
+  g.beginPath(); g.moveTo(W/2 - 22, B - 15); g.lineTo(W/2 + 22, B - 15); g.lineTo(W/2, H - 1); g.closePath(); g.fill();
+  g.strokeStyle = done ? '#E3B23C' : '#FFFFFF'; g.lineWidth = 5;
+  rr(10, 10, W - 20, B - 15, 15); g.stroke();
+  g.fillStyle = '#FFFFFF'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  const name = (done ? '✓ ' : '') + p.nazwa;
+  let fs = 40; g.font = `700 ${fs}px -apple-system, "SF Pro Display", system-ui, sans-serif`;
+  while (g.measureText(name).width > W - 50 && fs > 22) { fs -= 2; g.font = `700 ${fs}px -apple-system, "SF Pro Display", system-ui, sans-serif`; }
+  g.fillText(name, W/2, 64);
+  g.font = '400 30px -apple-system, system-ui, sans-serif'; g.fillStyle = done ? '#F3D98B' : '#DDEFE3';
+  g.fillText(`${p.wys} m n.p.m.`, W/2, 112);
+  return g.getImageData(0, 0, W, H);
+}
+
+/* ================= KOPIA ZAPASOWA ================= */
+const blobToDataUrl = b => new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(b); });
+async function exportBackup(){
+  const photos = {};
+  for (const p of PEAKS) { if (state.entries[p.id] && state.entries[p.id].photo) { const b = await photoGet(p.id); if (b) photos[p.id] = await blobToDataUrl(b); } }
+  const data = { app: 'szczytomaniak', version: 1, exported: new Date().toISOString(), entries: state.entries, photos };
+  const name = `szczytomaniak-kopia-${nowLocal().slice(0, 10)}.json`;
+  const file = new File([JSON.stringify(data)], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Szczytomaniak – kopia zapasowa' }); return; }
+  } catch(e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function importBackup(file){
+  try {
+    const data = JSON.parse(await file.text());
+    if (data.app !== 'szczytomaniak' || typeof data.entries !== 'object') throw new Error('format');
+    const n = Object.keys(data.entries).length;
+    if (!confirm(`Wczytać kopię z ${fmtDate((data.exported || '').slice(0, 16))}? Zawiera ${n} zdobytych szczytów. Obecne wpisy zostaną zastąpione.`)) return;
+    for (const p of PEAKS) { await photoDel(p.id); dropUrl(p.id); }
+    for (const [id, url] of Object.entries(data.photos || {})) { const b = await (await fetch(url)).blob(); await photoPut(+id, b); }
+    state.entries = {}; for (const [id, e] of Object.entries(data.entries)) if (byId[id]) state.entries[id] = e;
+    saveState(); refreshAll(); toast(`Wczytano kopię: ${n} szczytów ✓`);
+  } catch(e) { toast('To nie jest prawidłowy plik kopii Szczytomaniaka.'); }
+}
+
+/* ================= ODŚWIEŻANIE ================= */
+function refreshAll(scrollTop){ renderStart(); renderList(scrollTop); updateMap(); }
+
+/* ================= ZDARZENIA ================= */
+document.addEventListener('click', async ev => {
+  const t = ev.target.closest('button, a, .peak');
+  if (!t) return;
+  if (t.dataset.go) { go(t.dataset.go); return; }
+  if (t.dataset.showmap) { ev.stopPropagation(); if (sheetPeak) closeSheet(); pendingFocus = +t.dataset.showmap; go('map'); return; }
+  if (t.dataset.open) { openSheet(+t.dataset.open); return; }
+  if (t.dataset.goClose) { closeSheet(); go(t.dataset.goClose); return; }
+  if (t.dataset.sub) { showSub(t.dataset.sub); return; }
+  if ('back' in t.dataset) { showSub(null); return; }
+  if (t.dataset.peak) { openSheet(+t.dataset.peak); return; }
+  switch (t.dataset.act) {
+    case 'close-sheet': closeSheet(); break;
+    case 'mark': draft = { date: nowLocal(), note: '', gps: null, photo: false, newPhoto: null, removePhoto: false }; renderSheet(); break;
+    case 'pick-photo': syncDraft(); $('#photo-file').click(); break;
+    case 'remove-photo': syncDraft(); if (draft.newPhotoUrl) URL.revokeObjectURL(draft.newPhotoUrl); draft.newPhoto = null; draft.newPhotoUrl = null; draft.removePhoto = true; renderSheet(); break;
+    case 'save': saveSheet(); break;
+    case 'unmark': unmark(); break;
+    case 'hide-install': state.installHidden = true; saveState(); renderStart(); break;
+    case 'export': exportBackup(); break;
+    case 'import': $('#import-file').click(); break;
+  }
+});
+$('#backdrop').addEventListener('click', closeSheet);
+$('#checkin-btn').addEventListener('click', doCheckin);
+$('#photo-file').addEventListener('change', async ev => {
+  const f = ev.target.files && ev.target.files[0]; ev.target.value = '';
+  if (!f || !draft) return;
+  const b = await shrink(f);
+  if (draft.newPhotoUrl) URL.revokeObjectURL(draft.newPhotoUrl);
+  draft.newPhoto = b; draft.newPhotoUrl = URL.createObjectURL(b); draft.removePhoto = false; renderSheet();
+});
+$('#import-file').addEventListener('change', ev => { const f = ev.target.files && ev.target.files[0]; ev.target.value = ''; if (f) importBackup(f); });
+for (const id of ['#hide-list', '#hide-map']) $(id).addEventListener('change', ev => {
+  state.hideCompleted = ev.target.checked; saveState();
+  $('#hide-list').checked = $('#hide-map').checked = state.hideCompleted;
+  renderList(true); updateMap();
+});
+$('#fb-text').addEventListener('input', ev => $('#fb-send').disabled = !ev.target.value.trim());
+$('#fb-send').addEventListener('click', () => {
+  const body = `Rodzaj: ${$('#fb-kind').value}\nOpis:\n${$('#fb-text').value.trim()}\n\nWersja: web ${APP_VERSION}\nPrzeglądarka: ${navigator.userAgent}`;
+  location.href = `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent('Szczytomaniak (web) – zgłoszenie')}&body=${encodeURIComponent(body)}`;
+});
+
+/* ================= START APLIKACJI ================= */
+loadState();
+$('#hide-list').checked = $('#hide-map').checked = !!state.hideCompleted;
+$('#ver').textContent = APP_VERSION;
+if (SUPPORT_URL) { $('#support-link').href = SUPPORT_URL; $('#start-support').href = SUPPORT_URL; } else { $('#row-support').remove(); $('#start-support').remove(); }
+renderCheckinBtn(); refreshAll();
+const startHash = (location.hash || '').slice(1);
+go(['start','peaks','map','checkin','more'].includes(startHash) ? startHash : 'start');
+// Poproś Safari o trwałe przechowywanie (po dodaniu do ekranu początkowego dane nie są czyszczone).
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e) {}
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>

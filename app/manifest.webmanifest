@@ -1,0 +1,17 @@
+{
+  "name": "Szczytomaniak – dziennik szczytów",
+  "short_name": "Szczytomaniak",
+  "description": "Dziennik zdobytych szczytów 32 pasm górskich Polski: check-in GPS, mapa, zdjęcia i notatki.",
+  "lang": "pl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F5F2",
+  "theme_color": "#104D2A",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
