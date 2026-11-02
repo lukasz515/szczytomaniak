@@ -1,9 +1,9 @@
 // Szczytomaniak – service worker: aplikacja działa offline (poza mapą, która potrzebuje internetu).
 // Przy każdej zmianie plików aplikacji zwiększ numer wersji, żeby telefony pobrały nowe pliki.
-const CACHE = 'szczytomaniak-v1.0.1';
+const CACHE = 'szczytomaniak-v1.0.2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './img/emblem.jpg',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png'];
-const LIBS = ['https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js', 'https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css'];
+const LIBS = ['https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js', 'https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
